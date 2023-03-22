@@ -209,6 +209,46 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
     }
     return mfx_res;
         #else //\/ X11_DRI3_SUPPORT
+
+#if 1
+    // Testing purpose using vaExportSurfaceHandle
+    int dma_fd = 0;
+    int tmp_pitch = 0;
+    int tmp_w = 0;
+    int tmp_h = 0;
+    int tmp_size = 0;
+    int tmp_fourcc = 0;
+    int tmp_drm_format = 0;
+    VAStatus va_res = VA_STATUS_SUCCESS;
+    VASurfaceID surface;
+    VADisplay rnddpy = m_X11LibVA.GetVADisplay();
+    MfxLoader::VA_X11Proxy& vax11lib = m_X11LibVA.GetVAX11();
+
+    if (NULL != pSurface) {
+      memId = (vaapiMemId*)(pSurface->Data.MemId);
+      surface = *memId->m_surface;
+      VADRMPRIMESurfaceDescriptor prime_desc = {};
+
+       va_res = vax11lib.vaExportSurfaceHandle(rnddpy,
+                                               surface,
+                                               VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+                                               VA_EXPORT_SURFACE_READ_ONLY,
+                                               &prime_desc);
+       if (MFX_ERR_NONE == mfx_res) {
+         dma_fd = prime_desc.objects[0].fd;
+         tmp_w = prime_desc.width;
+         tmp_h = prime_desc.height;
+         tmp_size =  prime_desc.objects[0].size;
+         tmp_pitch = prime_desc.layers[0].pitch[0];
+         tmp_fourcc = prime_desc.fourcc;
+         tmp_drm_format = prime_desc.layers[0].drm_format;
+         msdk_printf(MSDK_STRING("slim50_onevpl: RenderFrame vaExportSurfaceHandle FD=%d : pitch=%d : %dx%d , size=%d : fourcc 0x%x : drm_format 0x%x\n\n"),
+                        dma_fd, tmp_pitch, tmp_w, tmp_h, tmp_size,
+                        tmp_fourcc, tmp_drm_format);
+       }
+    }
+#endif // testing
+
     Window* window = VAAPI_GET_X_WINDOW(m_window);
     Window root;
     drm_intel_bo* bo = NULL;
@@ -268,6 +308,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
                 msdk_printf(MSDK_STRING("Invalid depth\n"));
         }
 
+#if 0
         width  = pSurface->Info.CropX + pSurface->Info.CropW;
         height = pSurface->Info.CropY + pSurface->Info.CropH;
 
@@ -288,6 +329,12 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
             return MFX_ERR_NOT_INITIALIZED;
         }
 
+#else
+       width = tmp_w;
+       height = tmp_h;
+       stride = tmp_pitch;
+       size = PAGE_ALIGN(stride * height);
+#endif
         xcb_pixmap_t pixmap = xcblib.xcb_generate_id(m_xcbconn);
         xcb_void_cookie_t cookie;
         xcb_generic_error_t* error;
@@ -301,7 +348,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
                                                              stride,
                                                              depth,
                                                              bpp,
-                                                             fd);
+                                                             dma_fd);//fd);
         if ((error = xcblib.xcb_request_check(m_xcbconn, cookie))) {
             msdk_printf(
                 MSDK_STRING(
@@ -338,6 +385,8 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1* pSurface,
         xcblib.xcb_flush(m_xcbconn);
     }
 
+    // testing
+    close(dma_fd);
     return mfx_res;
 
         #endif // X11_DRI3_SUPPORT

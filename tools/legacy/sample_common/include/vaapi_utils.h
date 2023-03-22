@@ -331,6 +331,11 @@ private:
 
 public:
     typedef VADisplay (*vaGetDisplay_type)(Display*);
+    typedef VAStatus (*vaExportSurfaceHandle_type) (VADisplay,
+                                                    VASurfaceID,
+                                                    uint32_t,
+                                                    uint32_t,
+                                                    void *);
     typedef VAStatus (*vaPutSurface_type)(VADisplay,
                                           VASurfaceID,
                                           Drawable,
@@ -350,6 +355,7 @@ public:
     ~VA_X11Proxy();
 
     const vaGetDisplay_type vaGetDisplay;
+    const vaExportSurfaceHandle_type vaExportSurfaceHandle;
     const vaPutSurface_type vaPutSurface;
 };
 

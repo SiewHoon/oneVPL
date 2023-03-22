@@ -192,6 +192,7 @@ VA_WaylandClientProxy::~VA_WaylandClientProxy() {}
 VA_X11Proxy::VA_X11Proxy()
         : lib("libva-x11.so.2"),
           SIMPLE_LOADER_FUNCTION(vaGetDisplay),
+          SIMPLE_LOADER_FUNCTION(vaExportSurfaceHandle),
           SIMPLE_LOADER_FUNCTION(vaPutSurface) {}
 
 VA_X11Proxy::~VA_X11Proxy() {}
